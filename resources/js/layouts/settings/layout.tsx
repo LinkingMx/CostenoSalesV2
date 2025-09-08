@@ -8,26 +8,28 @@ import { edit } from '@/routes/profile';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
 import { type PropsWithChildren } from 'react';
-
-const sidebarNavItems: NavItem[] = [
-    {
-        title: 'Profile',
-        href: edit(),
-        icon: null,
-    },
-    {
-        title: 'Password',
-        href: editPassword(),
-        icon: null,
-    },
-    {
-        title: 'Appearance',
-        href: appearance(),
-        icon: null,
-    },
-];
+import { useTranslation } from '@/hooks/useTranslation';
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
+    const { t } = useTranslation();
+    
+    const sidebarNavItems: NavItem[] = [
+        {
+            title: t('settings.profile'),
+            href: edit(),
+            icon: null,
+        },
+        {
+            title: t('settings.password'),
+            href: editPassword(),
+            icon: null,
+        },
+        {
+            title: t('settings.appearance'),
+            href: appearance(),
+            icon: null,
+        },
+    ];
     // When server-side rendering, we only render the layout on the client...
     if (typeof window === 'undefined') {
         return null;
@@ -37,7 +39,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
 
     return (
         <div className="px-4 py-6">
-            <Heading title="Settings" description="Manage your profile and account settings" />
+            <Heading title={t('settings.title')} description={t('settings.description')} />
 
             <div className="flex flex-col lg:flex-row lg:space-x-12">
                 <aside className="w-full max-w-xl lg:w-48">

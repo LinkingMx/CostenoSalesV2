@@ -12,25 +12,27 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { edit } from '@/routes/password';
-
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Password settings',
-        href: edit().url,
-    },
-];
+import { useTranslation } from '@/hooks/useTranslation';
 
 export default function Password() {
     const passwordInput = useRef<HTMLInputElement>(null);
     const currentPasswordInput = useRef<HTMLInputElement>(null);
+    const { t } = useTranslation();
+    
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: t('settings.password_settings'),
+            href: edit().url,
+        },
+    ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Password settings" />
+            <Head title={t('settings.password_settings')} />
 
             <SettingsLayout>
                 <div className="space-y-6">
-                    <HeadingSmall title="Update password" description="Ensure your account is using a long, random password to stay secure" />
+                    <HeadingSmall title={t('settings.update_password', 'Actualizar contraseña')} description={t('settings.password_security_tip', 'Asegúrate de que tu cuenta esté usando una contraseña larga y aleatoria para mantenerte seguro')} />
 
                     <Form
                         {...PasswordController.update.form()}
@@ -53,7 +55,7 @@ export default function Password() {
                         {({ errors, processing, recentlySuccessful }) => (
                             <>
                                 <div className="grid gap-2">
-                                    <Label htmlFor="current_password">Current password</Label>
+                                    <Label htmlFor="current_password">{t('settings.current_password')}</Label>
 
                                     <Input
                                         id="current_password"
@@ -69,7 +71,7 @@ export default function Password() {
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="password">New password</Label>
+                                    <Label htmlFor="password">{t('settings.new_password')}</Label>
 
                                     <Input
                                         id="password"
@@ -85,7 +87,7 @@ export default function Password() {
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="password_confirmation">Confirm password</Label>
+                                    <Label htmlFor="password_confirmation">{t('settings.confirm_password')}</Label>
 
                                     <Input
                                         id="password_confirmation"
@@ -100,7 +102,7 @@ export default function Password() {
                                 </div>
 
                                 <div className="flex items-center gap-4">
-                                    <Button disabled={processing}>Save password</Button>
+                                    <Button disabled={processing}>{t('settings.save_password', 'Guardar contraseña')}</Button>
 
                                     <Transition
                                         show={recentlySuccessful}
@@ -109,7 +111,7 @@ export default function Password() {
                                         leave="transition ease-in-out"
                                         leaveTo="opacity-0"
                                     >
-                                        <p className="text-sm text-neutral-600">Saved</p>
+                                        <p className="text-sm text-neutral-600">{t('settings.settings_saved')}</p>
                                     </Transition>
                                 </div>
                             </>

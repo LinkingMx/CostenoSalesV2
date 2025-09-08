@@ -1,11 +1,14 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/react-starter-kit",
+    "name": "armando_reyes/costeno-sales-v2",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
+    "description": "Costeno Sales V2 - A modern sales management application built with Laravel and React.",
     "keywords": [
         "laravel",
-        "framework"
+        "react",
+        "sales",
+        "crm",
+        "management"
     ],
     "license": "MIT",
     "require": {

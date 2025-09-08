@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'external_api' => [
+        'url' => env('EXTERNAL_API_URL', 'http://192.168.100.20'),
+        'token' => env('EXTERNAL_API_TOKEN', '342|AxRYaMAz4RxhiMwYTXJmUvCXvkjq24MrXW3YgrF91ef9616f'),
+    ],
+
 ];
