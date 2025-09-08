@@ -218,24 +218,6 @@ export default function Dashboard() {
                         {/* Monthly Components Section - OPTIMIZED: Uses ONLY 2 API calls total */}
                         {shouldShowMonthlyComponents && (
                             <div className="">
-                                {/* Performance Indicator for Monthly */}
-                                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-800">
-                                    <div className="flex items-center justify-between text-sm">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-blue-600 dark:text-blue-400">⚡ Dashboard Mensual Optimizado</span>
-                                            <span className="text-muted-foreground">
-                                                Componentes mensuales usando 2 API calls compartidos
-                                            </span>
-                                        </div>
-                                        <div className="text-right text-muted-foreground">
-                                            <span className="font-medium text-blue-600 dark:text-blue-400">
-                                                ~70 API calls → 2 calls
-                                            </span>
-                                            <br />
-                                            <span className="text-xs">97% reducción</span>
-                                        </div>
-                                    </div>
-                                </div>
 
                                 <MonthlyLineChart
                                     startDate={startDate}
