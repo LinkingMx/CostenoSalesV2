@@ -41,9 +41,19 @@
         <meta name="apple-mobile-web-app-title" content="Costeno Sales">
         <meta name="mobile-web-app-capable" content="yes">
 
+        <!-- Favicon -->
+        <link rel="icon" href="/favicon-16x16.png" sizes="16x16" type="image/png">
+        <link rel="icon" href="/favicon-32x32.png" sizes="32x32" type="image/png">
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+        
+        <!-- Apple Touch Icons -->
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" sizes="180x180">
+        
+        <!-- Android Chrome Icons -->
+        <link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png">
+        <link rel="icon" href="/icon-512.png" sizes="512x512" type="image/png">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600" rel="stylesheet" />
