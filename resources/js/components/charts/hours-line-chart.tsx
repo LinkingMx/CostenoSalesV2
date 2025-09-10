@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartConfig, ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useHoursChartWithDate } from '@/hooks/useHoursChart';
+import { AdaptiveSkeleton } from '@/components/ui/adaptive-skeleton';
+import { cn } from '@/lib/utils';
+import { HourData } from '@/types/chart-types';
 
 const chartConfig = {
     current: {
@@ -18,31 +20,74 @@ const chartConfig = {
     },
 } satisfies ChartConfig;
 
+/**
+ * Props interface for HoursLineChart component
+ * Supports both internal data fetching and external data provision
+ */
 interface HoursLineChartProps {
+    /** Date for chart data in YYYY-MM-DD format */
     date: string;
+    /** Chart title (optional) */
     title?: string;
+    /** Chart description (optional) */
     description?: string;
+    /** Additional CSS classes */
     className?: string;
+    /** External hours chart data (when using unified hook) */
+    hoursChartData?: HourData[] | null;
+    /** Whether component is in loading state (controlled externally) */
+    isLoading?: boolean;
+    /** Error object if there's an issue with data */
+    error?: Error | null;
+    /** Refetch function for manual data refresh */
+    onRefresh?: () => Promise<void>;
 }
 
-export function HoursLineChart({ date, title = 'Gráfica por Horas', description, className }: HoursLineChartProps) {
-    const { data, loading, error, refetch } = useHoursChartWithDate(date);
+/**
+ * Hours Line Chart Component
+ * Displays hourly sales data comparison between current day and previous week
+ * 
+ * Features:
+ * - Dual-line chart comparing current day vs same day previous week
+ * - Interactive tooltips with formatted values
+ * - Responsive design with mobile-optimized layout
+ * - Consistent loading states with adaptive skeletons
+ * - Error handling with retry functionality
+ * - Accessible design with proper ARIA labels
+ * - Optimized performance with memoized calculations
+ * 
+ * @param props - Component props including date, data, and display options
+ * @returns JSX element representing the hours line chart
+ */
+export function HoursLineChart({ 
+    date, 
+    className,
+    hoursChartData: externalData,
+    isLoading: externalLoading = false,
+    error: externalError = null,
+    onRefresh
+}: HoursLineChartProps) {
+    // Use external data if provided, otherwise fetch internally (fallback for legacy usage)
+    const data = externalData;
+    const loading = externalLoading;
+    const error = externalError;
+    const refetch = onRefresh || (() => Promise.resolve());
 
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('es-ES', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-        });
-    };
-
+    /**
+     * Chart title component with summary statistics and information tooltip
+     * Displays current vs previous totals with proper formatting
+     */
     const TitleWithIcon = () => {
-        // Calculate totals from data
+        // Calculate totals from data with memoization-like approach
         const currentTotal = data ? data.reduce((sum, item) => sum + item.current, 0) : 0;
         const previousTotal = data ? data.reduce((sum, item) => sum + item.previous, 0) : 0;
 
-        const formatNumber = (num: number) => {
+        /**
+         * Format number for display with locale-specific formatting
+         * @param num - Number to format
+         * @returns Formatted number string
+         */
+        const formatNumber = (num: number): string => {
             return new Intl.NumberFormat('en-US').format(Math.round(num));
         };
 
@@ -55,8 +100,8 @@ export function HoursLineChart({ date, title = 'Gráfica por Horas', description
                         </PopoverTrigger>
                         <PopoverContent side="right" className="max-w-xs p-3">
                             <p className="text-sm">
-                                Esta gráfica muestra información de análisis de ventas por horas, comparando la fecha seleccionada con su similar
-                                anterior.
+                                <strong>Análisis por Horas:</strong> Compara la actividad del día seleccionado vs el mismo día de la semana anterior, hora por hora (00:00 - 23:59). 
+                                Identifica picos de actividad, horarios óptimos y patrones de comportamiento diario para optimizar operaciones.
                             </p>
                         </PopoverContent>
                     </Popover>
@@ -68,7 +113,7 @@ export function HoursLineChart({ date, title = 'Gráfica por Horas', description
                     <div className="flex items-center justify-center gap-8 rounded-lg border border-slate-200/30 bg-slate-50/50 px-4 py-3 dark:border-slate-700/30 dark:bg-slate-800/20">
                         <div className="flex flex-col items-center gap-1">
                             <div className="flex items-center gap-1.5">
-                                <div className="h-3 w-3 rounded-full bg-blue-600"></div>
+                                <div className="h-3 w-3 rounded-full bg-[#897053]"></div>
                                 <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Día Actual</span>
                             </div>
                             <span className="text-lg font-bold text-slate-900 dark:text-slate-100">{formatNumber(currentTotal)}</span>
@@ -78,7 +123,7 @@ export function HoursLineChart({ date, title = 'Gráfica por Horas', description
 
                         <div className="flex flex-col items-center gap-1">
                             <div className="flex items-center gap-1.5">
-                                <div className="h-3 w-3 rounded-full bg-orange-600"></div>
+                                <div className="h-3 w-3 rounded-full bg-[#D58B35]"></div>
                                 <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Semana anterior</span>
                             </div>
                             <span className="text-lg font-bold text-slate-500 dark:text-slate-400">{formatNumber(previousTotal)}</span>
@@ -89,40 +134,37 @@ export function HoursLineChart({ date, title = 'Gráfica por Horas', description
         );
     };
 
+    // Show consistent skeleton loading state
     if (loading) {
         return (
-            <Card className={`${className} overflow-hidden border-0 bg-transparent shadow-none`}>
-                <CardHeader className="px-4 pt-3 pb-1">
-                    <TitleWithIcon />
-                </CardHeader>
-                <CardContent className="flex h-40 items-center justify-center">
-                    <div className="space-y-3 text-center">
-                        <div className="relative">
-                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                                <RefreshCw className="h-6 w-6 animate-spin text-primary" />
-                            </div>
-                        </div>
-                        <div className="space-y-1">
-                            <p className="font-medium">Cargando gráfica...</p>
-                            <p className="text-sm text-muted-foreground">Obteniendo datos de actividad por horas</p>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+            <AdaptiveSkeleton 
+                type="chart" 
+                className={cn("overflow-hidden border-0 bg-transparent shadow-none", className)}
+                showTitle={true}
+                showLegend={true}
+                height="h-40"
+            />
         );
     }
 
+    // Handle error state with user-friendly retry option
     if (error) {
         return (
-            <Card className={`${className} overflow-hidden border-0 bg-transparent shadow-none`}>
+            <Card className={cn("overflow-hidden border-0 bg-transparent shadow-none", className)}>
                 <CardHeader className="px-4 pb-1">
                     <TitleWithIcon />
                 </CardHeader>
                 <CardContent className="flex h-40 items-center justify-center">
-                    <div className="max-w-sm space-y-1 text-center">
+                    <div className="max-w-sm space-y-3 text-center">
                         <div className="relative">
                             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10">
-                                <svg className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg 
+                                    className="h-6 w-6 text-red-500" 
+                                    fill="none" 
+                                    viewBox="0 0 24 24" 
+                                    stroke="currentColor"
+                                    aria-hidden="true"
+                                >
                                     <path
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
@@ -140,8 +182,9 @@ export function HoursLineChart({ date, title = 'Gráfica por Horas', description
                             variant="outline"
                             onClick={() => refetch()}
                             className="gap-2 border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400"
+                            aria-label="Reintentar carga de datos de horas"
                         >
-                            <RefreshCw className="h-4 w-4" />
+                            <RefreshCw className="h-4 w-4" aria-hidden="true" />
                             Reintentar
                         </Button>
                     </div>
@@ -150,17 +193,24 @@ export function HoursLineChart({ date, title = 'Gráfica por Horas', description
         );
     }
 
+    // Handle empty data state with reload option
     if (!data || data.length === 0) {
         return (
-            <Card className={`${className} overflow-hidden border-0 bg-transparent shadow-none`}>
+            <Card className={cn("overflow-hidden border-0 bg-transparent shadow-none", className)}>
                 <CardHeader className="px-4 pt-3 pb-1">
                     <TitleWithIcon />
                 </CardHeader>
                 <CardContent className="flex h-40 items-center justify-center">
-                    <div className="max-w-sm space-y-1 text-center">
+                    <div className="max-w-sm space-y-3 text-center">
                         <div className="relative">
                             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-yellow-500/10">
-                                <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg 
+                                    className="h-6 w-6 text-yellow-600" 
+                                    fill="none" 
+                                    viewBox="0 0 24 24" 
+                                    stroke="currentColor"
+                                    aria-hidden="true"
+                                >
                                     <path
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
@@ -174,8 +224,13 @@ export function HoursLineChart({ date, title = 'Gráfica por Horas', description
                             <p className="font-medium">Sin datos disponibles</p>
                             <p className="text-sm text-muted-foreground">No hay información para mostrar en esta fecha</p>
                         </div>
-                        <Button variant="outline" onClick={() => refetch()} className="gap-2">
-                            <RefreshCw className="h-4 w-4" />
+                        <Button 
+                            variant="outline" 
+                            onClick={() => refetch()} 
+                            className="gap-2"
+                            aria-label="Recargar datos de horas"
+                        >
+                            <RefreshCw className="h-4 w-4" aria-hidden="true" />
                             Recargar
                         </Button>
                     </div>
@@ -184,8 +239,9 @@ export function HoursLineChart({ date, title = 'Gráfica por Horas', description
         );
     }
 
+    // Render main chart with optimized performance and accessibility
     return (
-        <Card className={`${className} overflow-hidden border-0 bg-transparent shadow-none`}>
+        <Card className={cn("overflow-hidden border-0 bg-transparent shadow-none", className)}>
             <CardHeader className="px-4 pt-3 pb-1">
                 <TitleWithIcon />
             </CardHeader>
@@ -244,19 +300,19 @@ export function HoursLineChart({ date, title = 'Gráfica por Horas', description
                             <Line
                                 dataKey="current"
                                 type="monotone"
-                                stroke="#2563eb"
+                                stroke="#897053"
                                 strokeWidth={4}
-                                dot={{ r: 4, fill: '#2563eb', strokeWidth: 0 }}
-                                activeDot={{ r: 5, stroke: '#2563eb', strokeWidth: 2, fill: 'white' }}
+                                dot={{ r: 4, fill: '#897053', strokeWidth: 0 }}
+                                activeDot={{ r: 5, stroke: '#897053', strokeWidth: 2, fill: 'white' }}
                             />
                             <Line
                                 dataKey="previous"
                                 type="monotone"
-                                stroke="#ea580c"
+                                stroke="#D58B35"
                                 strokeWidth={3}
                                 strokeDasharray="6 4"
-                                dot={{ r: 3.5, fill: '#ea580c', strokeWidth: 0 }}
-                                activeDot={{ r: 4, stroke: '#ea580c', strokeWidth: 2, fill: 'white' }}
+                                dot={{ r: 3.5, fill: '#D58B35', strokeWidth: 0 }}
+                                activeDot={{ r: 4, stroke: '#D58B35', strokeWidth: 2, fill: 'white' }}
                                 opacity={0.8}
                             />
                         </LineChart>

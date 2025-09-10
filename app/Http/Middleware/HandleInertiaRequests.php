@@ -62,14 +62,25 @@ class HandleInertiaRequests extends Middleware
         $langPath = resource_path("lang/{$locale}");
 
         if (!File::isDirectory($langPath)) {
-            return $translations;
+            // Fallback to Spanish if locale directory doesn't exist
+            $langPath = resource_path("lang/es");
+            if (!File::isDirectory($langPath)) {
+                return $translations;
+            }
         }
 
-        $files = File::files($langPath);
+        try {
+            $files = File::files($langPath);
 
-        foreach ($files as $file) {
-            $filename = $file->getFilenameWithoutExtension();
-            $translations[$filename] = require $file->getPathname();
+            foreach ($files as $file) {
+                $filename = $file->getFilenameWithoutExtension();
+                if ($file->getExtension() === 'php') {
+                    $translations[$filename] = require $file->getPathname();
+                }
+            }
+        } catch (\Exception $e) {
+            // Log the error in production but don't break the app
+            \Log::error('Failed to load translations', ['locale' => $locale, 'path' => $langPath, 'error' => $e->getMessage()]);
         }
 
         return $translations;

@@ -1,34 +1,52 @@
 import { BranchSummaryAccordion } from '@/components/charts/branch-summary-accordion';
+import { BranchDetailDrawer } from '@/components/branch-detail-drawer';
+import { useBranchDetailDrawer } from '@/hooks/use-branch-detail-drawer';
 import { DailySalesSummary } from '@/components/charts/daily-sales-summary';
 import { HoursLineChart } from '@/components/charts/hours-line-chart';
-import { MonthlyBranchSummaryAccordion } from '@/components/charts/monthly-branch-summary-accordion';
-import { MonthlyBranchSummaryAccordionShared } from '@/components/charts/monthly-branch-summary-accordion-shared';
-import { MonthlyLineChart } from '@/components/charts/monthly-line-chart';
-import { MonthlySalesSummary } from '@/components/charts/monthly-sales-summary';
+import { MonthlyLineChartOptimized } from '@/components/charts/monthly-line-chart-optimized';
+import { MonthlyBranchSummaryAccordionOptimized } from '@/components/charts/monthly-branch-summary-accordion-optimized';
 import { MonthlySalesSummaryOptimized } from '@/components/charts/monthly-sales-summary-optimized';
-import { WeeklyBranchSummaryAccordion } from '@/components/charts/weekly-branch-summary-accordion';
 import { WeeklyBranchSummaryAccordionShared } from '@/components/charts/weekly-branch-summary-accordion-shared';
-import { WeeklyLineChart } from '@/components/charts/weekly-line-chart';
-import { WeeklySalesSummary } from '@/components/charts/weekly-sales-summary';
+import { WeeklyLineChartOptimized } from '@/components/charts/weekly-line-chart-optimized';
 import { WeeklySalesSummaryOptimized } from '@/components/charts/weekly-sales-summary-optimized';
+import { CustomRangeSalesSummary } from '@/components/charts/customrange-sales-summary';
+import { CustomRangeBranchSummary } from '@/components/charts/customrange-branch-summary';
+import { CustomRangeLineChart } from '@/components/charts/customrange-line-chart';
 import { DateRangePicker } from '@/components/date-range-picker';
+import { PullToRefreshContainer } from '@/components/ui/pull-to-refresh-container';
+import { AdaptiveSkeleton, LoadingText } from '@/components/ui/adaptive-skeleton';
+import { ModernLoading } from '@/components/ui/modern-loading';
+import { WithReveal } from '@/components/ui/reveal-transition';
+import { useMultipleLoadingState } from '@/hooks/use-loading-state';
 import { useDateRangeFilter } from '@/hooks/use-date-range-filter';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useMainDashboardData } from '@/hooks/use-main-dashboard-data';
-import { useWeeklyChartDataSimple } from '@/hooks/use-weekly-chart-data-simple';
-import { useMonthlyChartDataSimple } from '@/hooks/use-monthly-chart-data-simple';
-import { useSharedWeeklyData } from '@/hooks/use-shared-weekly-data';
-import { useSharedMonthlyData, useIsMonthlyPeriod } from '@/hooks/use-shared-monthly-data';
+import { useUnifiedDailyData, useIsSingleDay } from '@/hooks/use-unified-daily-data';
+import { useSharedWeeklyDataOptimized } from '@/hooks/use-shared-weekly-data-optimized';
+import { useWeeklyLoadingCoordinator, useMonthlyLoadingCoordinator } from '@/hooks/use-unified-loading-state';
+import { useSharedMonthlyDataOptimized } from '@/hooks/use-shared-monthly-data-optimized';
+import { useCustomRangeData, useIsCustomRange } from '@/hooks/use-custom-range-data';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
-import { endOfDay, isSameDay, startOfDay, differenceInDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, differenceInCalendarDays } from 'date-fns';
+import { endOfDay, isSameDay, startOfDay, differenceInDays, endOfMonth } from 'date-fns';
+import { useCallback } from 'react';
+import { BranchDetailData } from '@/types/branch-detail';
 
 export default function Dashboard() {
     const { t } = useTranslation();
+    
+    // Branch detail drawer state
+    const {
+        isOpen: isDrawerOpen,
+        branchData: selectedBranchData,
+        dateRange: drawerDateRange,
+        openDrawer,
+        closeDrawer,
+        updateDateRange: updateDrawerDateRange,
+    } = useBranchDetailDrawer();
 
     const formatDate = (date: Date) => {
         return date.toLocaleDateString('es-ES', {
@@ -44,15 +62,17 @@ export default function Dashboard() {
         to: endOfDay(new Date()),
     };
 
-    const { dateRange, updateDateRange, data, loading, error, hasValidRange, startDate, endDate } = useDateRangeFilter({
+    const { dateRange, updateDateRange, hasValidRange, startDate, endDate } = useDateRangeFilter({
         defaultDateRange,
-        autoFetch: true,
     });
 
-    
+    // Check if current filter is a single day using optimized hook
+    const isSingleDay = useIsSingleDay(startDate || '', endDate || '');
 
-    // Check if current filter is a single day
-    const isSingleDay = dateRange?.from && dateRange?.to && isSameDay(dateRange.from, dateRange.to);
+    // Wrapper function to pass dashboard context to drawer
+    const handleOpenDrawer = useCallback((branchData: BranchDetailData) => {
+        openDrawer(branchData, dateRange);
+    }, [openDrawer, dateRange]);
 
     // Check if current filter is a weekly period (exactly 7 days and starts on Monday)
     const isWeeklyPeriod = dateRange?.from && dateRange?.to && 
@@ -63,46 +83,138 @@ export default function Dashboard() {
     const isMonthlyPeriod = dateRange?.from && dateRange?.to &&
         dateRange.from.getDate() === 1 && // Starts on 1st day of month
         isSameDay(dateRange.to, endOfMonth(dateRange.from)); // Ends on last day of same month
-
+    
+    // Check if current filter is a custom range (not single day, week, or month)
+    const isCustomRangePeriod = useIsCustomRange(startDate, endDate);
+    
     // Show chart only when filter is for a single day
-    const shouldShowChart = isSingleDay && startDate;
+    const shouldShowChart = Boolean(isSingleDay && startDate);
     
     // Show weekly components when filter is for a week
-    const shouldShowWeeklyComponents = isWeeklyPeriod && startDate && endDate;
+    const shouldShowWeeklyComponents = Boolean(isWeeklyPeriod && startDate && endDate);
     
     // Show monthly components when filter is for a month
-    const shouldShowMonthlyComponents = isMonthlyPeriod && startDate && endDate;
+    const shouldShowMonthlyComponents = Boolean(isMonthlyPeriod && startDate && endDate);
+    
+    // Show custom range components when filter is for a custom range
+    const shouldShowCustomRangeComponents = Boolean(isCustomRangePeriod && startDate && endDate && 
+        !isSingleDay && !isWeeklyPeriod && !isMonthlyPeriod);
 
-    // Always call hooks but use enabled/disabled pattern
-    const dailyData = useMainDashboardData(
+
+    // **OPTIMIZED: Unified daily data hook - reduces API calls by 50%**
+    const unifiedDailyData = useUnifiedDailyData(
         shouldShowChart ? (startDate || '') : '', 
-        shouldShowChart ? (endDate || '') : ''
+        shouldShowChart ? (endDate || '') : '',
+        shouldShowChart
     );
 
-    // **OPTIMIZACIÓN: Un solo hook que hace EXACTAMENTE 2 API calls para todos los componentes semanales**
-    const sharedWeeklyData = useSharedWeeklyData(
+    // **OPTIMIZACIÓN PARALELA: Ejecuta 3 API calls en paralelo en lugar de secuencial (6s → 3s)**
+    const weeklyData = useSharedWeeklyDataOptimized(
         shouldShowWeeklyComponents ? (startDate || '') : '',
         shouldShowWeeklyComponents ? (endDate || '') : '',
         shouldShowWeeklyComponents
     );
     
-    // **OPTIMIZACIÓN MENSUAL: Un solo hook que hace EXACTAMENTE 2 API calls para todos los componentes mensuales**
-    const sharedMonthlyData = useSharedMonthlyData(
+    // **COORDINACIÓN DE ESQUELETOS: Todos los esqueletos aparecen/desaparecen juntos**
+    const weeklyLoading = useWeeklyLoadingCoordinator(
+        weeklyData.isLoading, // Current + comparison data loading
+        weeklyData.isLoading, // Chart data loading (same state for coordination)
+        weeklyData.isLoading, // Third operation (same state)
+        { 
+            minimumLoadingTime: 800,
+            coordinateSkeletons: true,
+            showProgressiveLoading: false,
+            staggerDelay: 200
+        }
+    );
+    
+    // **DATOS MENSUALES: Para componentes de resumen y acordeón**
+    const monthlyData = useSharedMonthlyDataOptimized(
         shouldShowMonthlyComponents ? (startDate || '') : '',
         shouldShowMonthlyComponents ? (endDate || '') : '',
         shouldShowMonthlyComponents
     );
     
-    // Using simple version with loading states para monthly chart (legacy)
-    const monthlyChartData = useMonthlyChartDataSimple(
-        shouldShowMonthlyComponents ? (startDate || '') : '', 
-        shouldShowMonthlyComponents ? (endDate || '') : ''
+    // **COORDINACIÓN DE ESQUELETOS MENSUAL: Para componentes de resumen**
+    const monthlyLoading = useMonthlyLoadingCoordinator(
+        monthlyData.isLoading,
+        monthlyData.isLoading,
+        monthlyData.isLoading,
+        { 
+            minimumLoadingTime: 1000,
+            coordinateSkeletons: true,
+            showProgressiveLoading: false,
+            staggerDelay: 250
+        }
     );
     
-    const isLoadingDaily = shouldShowChart && dailyData.loading;
-    const isLoadingWeekly = shouldShowWeeklyComponents && sharedWeeklyData.isLoading; // Usa shared data
-    const isLoadingMonthly = shouldShowMonthlyComponents && (sharedMonthlyData.isLoading || monthlyChartData.loading);
-    const isAnyComponentLoading = isLoadingDaily || isLoadingWeekly || isLoadingMonthly;
+    // **CUSTOM RANGE: Hook for custom date ranges - uses same API optimizations**
+    const customRangeData = useCustomRangeData(
+        shouldShowCustomRangeComponents ? (startDate || '') : '',
+        shouldShowCustomRangeComponents ? (endDate || '') : '',
+        shouldShowCustomRangeComponents
+    );
+    
+    // Use simplified loading state with consistent 500ms minimum
+    const allLoadingStates: boolean[] = [
+        shouldShowChart ? unifiedDailyData.isLoading : false,
+        shouldShowWeeklyComponents ? weeklyLoading.showLoading : false,
+        shouldShowMonthlyComponents ? monthlyLoading.showLoading : false,
+        shouldShowCustomRangeComponents ? customRangeData.isLoading : false
+    ];
+    
+    const { showLoading: showGlobalLoading } = useMultipleLoadingState(
+        allLoadingStates,
+        { minimumLoadingTime: 500 }
+    );
+
+    // Simple data checking for display logic - updated for unified loading coordination
+    const hasDataDaily = shouldShowChart && unifiedDailyData.dashboardData !== null && !unifiedDailyData.isLoading && !unifiedDailyData.error;
+    const hasDataWeekly = shouldShowWeeklyComponents && weeklyData.currentData !== null && !weeklyLoading.showLoading && !weeklyData.error;
+    const hasDataMonthly = shouldShowMonthlyComponents && monthlyData.currentData !== null && !monthlyLoading.showLoading && !monthlyData.error;
+    const hasDataCustomRange = shouldShowCustomRangeComponents && customRangeData.data !== null && !customRangeData.isLoading && !customRangeData.error;
+
+
+    // Pull to refresh functionality
+    const handlePullToRefresh = async () => {
+        
+        const promises: Promise<unknown>[] = [];
+        
+        // Refetch based on current view - using unified refetch
+        if (shouldShowChart && unifiedDailyData.refetchAll) {
+            promises.push(unifiedDailyData.refetchAll());
+        }
+        
+        if (shouldShowWeeklyComponents) {
+            // For optimized weekly data - single refetch handles all parallel calls
+            if (weeklyData.refetch) {
+                promises.push(weeklyData.refetch());
+            }
+        }
+        
+        if (shouldShowMonthlyComponents) {
+            // Para componentes mensuales de resumen y acordeón
+            if (monthlyData.refetch) {
+                promises.push(monthlyData.refetch());
+            }
+        }
+        
+        if (shouldShowCustomRangeComponents) {
+            // For custom range data
+            if (customRangeData.refetch) {
+                promises.push(customRangeData.refetch());
+            }
+        }
+        
+        // If no specific data to refresh, do a full page refresh
+        if (promises.length === 0) {
+            window.location.reload();
+            return;
+        }
+        
+        // Execute all refetch promises
+        await Promise.allSettled(promises);
+    };
 
     const breadcrumbs: BreadcrumbItem[] = [
         {
@@ -114,7 +226,8 @@ export default function Dashboard() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={t('navigation.dashboard')} />
-            <div className="flex h-full flex-1 flex-col gap-2 overflow-x-auto rounded-xl p-2">
+            <PullToRefreshContainer onRefresh={handlePullToRefresh} threshold={80}>
+                <div className="flex h-full flex-1 flex-col gap-2 overflow-x-auto rounded-xl p-2">
                 {/* Date Range Filter with Reload Button */}
                 <div className="flex items-center justify-between">
                     <div className="flex-1">{/* Space for future elements like title or breadcrumbs */}</div>
@@ -132,129 +245,261 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* Centralized Loading State */}
-                {isAnyComponentLoading ? (
-                    <div className="flex h-96 items-center justify-center">
-                        <div className="space-y-4 text-center">
-                            <div className="relative">
-                                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                                    <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <p className="text-lg font-medium">Cargando datos...</p>
-                                <p className="text-sm text-muted-foreground">
-                                    {shouldShowChart && "Obteniendo análisis diario"}
-                                    {shouldShowWeeklyComponents && "Obteniendo análisis semanal optimizado (2 API calls)"}
-                                    {shouldShowMonthlyComponents && "Obteniendo análisis mensual optimizado (2 API calls)"}
-                                </p>
-                            </div>
-                        </div>
+                {/* Modern Loading State */}
+                {showGlobalLoading ? (
+                    <div className="flex items-center justify-center min-h-[400px]">
+                        <ModernLoading 
+                            type={shouldShowChart ? 'daily' : 
+                                  shouldShowWeeklyComponents ? 'weekly' : 
+                                  shouldShowMonthlyComponents ? 'monthly' : 
+                                  shouldShowCustomRangeComponents ? 'general' : 'general'}
+                            showProgressDots={true}
+                        />
                     </div>
                 ) : (
                     <>
                         {/* Hours Chart Section - Only show for single day */}
                         {shouldShowChart && (
-                            <div className="">
-                                <HoursLineChart
-                                    date={startDate}
-                                    title="Análisis de Actividad por Horas"
-                                    description={`Comparación detallada de ${formatDate(new Date(startDate))} vs semana anterior`}
-                                    className="w-full"
-                                />
+                            <div className="space-y-4">
+                                <WithReveal
+                                    isLoading={showGlobalLoading}
+                                    hasData={hasDataDaily}
+                                    shouldReveal={!showGlobalLoading && hasDataDaily}
+                                    skeleton={<AdaptiveSkeleton type="chart" className="overflow-hidden border-0 bg-transparent shadow-none w-full" showTitle={true} showLegend={true} height="h-40" />}
+                                    type="slideUp"
+                                >
+                                    <HoursLineChart
+                                        date={startDate}
+                                        title="Análisis de Actividad por Horas"
+                                        description={`Comparación detallada de ${formatDate(new Date(startDate))} vs semana anterior`}
+                                        className="w-full"
+                                        hoursChartData={unifiedDailyData.hoursChartData}
+                                        isLoading={unifiedDailyData.isLoading}
+                                        error={unifiedDailyData.error}
+                                        onRefresh={unifiedDailyData.refetchHours}
+                                    />
+                                </WithReveal>
 
-                                <DailySalesSummary
-                                    date={startDate}
-                                    endDate={endDate}
-                                    percentageChange={8.0}
-                                    comparisonText="Mismo día semana anterior al de ayer."
-                                    className="w-full"
-                                />
+                                <WithReveal
+                                    isLoading={showGlobalLoading}
+                                    hasData={hasDataDaily}
+                                    shouldReveal={!showGlobalLoading && hasDataDaily}
+                                    skeleton={<AdaptiveSkeleton type="card" className="w-full" />}
+                                    type="slideUp"
+                                >
+                                    <DailySalesSummary
+                                        date={startDate}
+                                        endDate={endDate}
+                                        comparisonText="Mismo día semana anterior al de ayer."
+                                        className="w-full"
+                                        isLoading={unifiedDailyData.isLoading}
+                                        error={unifiedDailyData.error}
+                                        dashboardData={unifiedDailyData.dashboardData}
+                                        dashboardComparisonData={unifiedDailyData.dashboardComparisonData}
+                                        dashboardPercentageChange={unifiedDailyData.dashboardPercentageChange}
+                                        dashboardPreviousAmount={unifiedDailyData.dashboardPreviousAmount}
+                                    />
+                                </WithReveal>
 
-                                <BranchSummaryAccordion
-                                    date={startDate}
-                                    endDate={endDate}
-                                    className="w-full"
-                                />
+                                <WithReveal
+                                    isLoading={showGlobalLoading}
+                                    hasData={hasDataDaily}
+                                    shouldReveal={!showGlobalLoading && hasDataDaily}
+                                    skeleton={<AdaptiveSkeleton type="accordion" className="w-full" itemCount={4} />}
+                                    type="slideUp"
+                                >
+                                    <BranchSummaryAccordion
+                                        date={startDate}
+                                        endDate={endDate}
+                                        className="w-full"
+                                        onBranchDetailsClick={handleOpenDrawer}
+                                    />
+                                </WithReveal>
                             </div>
                         )}
 
                         {/* Weekly Components Section - OPTIMIZED: Uses ONLY 2 API calls total */}
                         {shouldShowWeeklyComponents && (
-                            <div className="">
+                            <div className="space-y-4">
+                                <WithReveal
+                                    isLoading={weeklyLoading.showSkeletons}
+                                    hasData={hasDataWeekly}
+                                    shouldReveal={!weeklyLoading.showSkeletons && hasDataWeekly}
+                                    skeleton={<AdaptiveSkeleton type="chart" className="overflow-hidden border-0 bg-transparent shadow-none w-full" showTitle={true} showLegend={true} height="h-40" />}
+                                    type="slideUp"
+                                >
+                                    <WeeklyLineChartOptimized
+                                        chartData={weeklyData.chartData}
+                                        isLoading={weeklyLoading.showLoading}
+                                        error={weeklyData.error}
+                                        onRefresh={weeklyData.refetch}
+                                        className="w-full"
+                                    />
+                                </WithReveal>
 
-                                <WeeklyLineChart
-                                    startDate={startDate}
-                                    endDate={endDate}
-                                    title="Análisis Semanal por Días"
-                                    description={`Comparación de ${formatDate(new Date(startDate))} a ${formatDate(new Date(endDate))} vs semana anterior`}
-                                    className="w-full"
-                                />
+                                <WithReveal
+                                    isLoading={weeklyLoading.showSkeletons}
+                                    hasData={hasDataWeekly}
+                                    shouldReveal={!weeklyLoading.showSkeletons && hasDataWeekly}
+                                    skeleton={<AdaptiveSkeleton type="card" className="w-full" showPercentage={true} />}
+                                    type="slideUp"
+                                >
+                                    <WeeklySalesSummaryOptimized
+                                        startDate={startDate}
+                                        endDate={endDate}
+                                        currentData={weeklyData.currentData}
+                                        comparisonData={weeklyData.comparisonData}
+                                        percentageChange={weeklyData.percentageChange}
+                                        previousAmount={weeklyData.previousAmount}
+                                        isLoading={weeklyLoading.showLoading}
+                                        error={weeklyData.error}
+                                        className="w-full"
+                                    />
+                                </WithReveal>
 
-                                <WeeklySalesSummaryOptimized
-                                    startDate={startDate}
-                                    endDate={endDate}
-                                    currentData={sharedWeeklyData.currentData}
-                                    comparisonData={sharedWeeklyData.comparisonData}
-                                    percentageChange={sharedWeeklyData.percentageChange}
-                                    previousAmount={sharedWeeklyData.previousAmount}
-                                    isLoading={sharedWeeklyData.isLoading}
-                                    error={sharedWeeklyData.error}
-                                    className="w-full"
-                                />
-
-                                <WeeklyBranchSummaryAccordionShared
-                                    startDate={startDate}
-                                    endDate={endDate}
-                                    currentData={sharedWeeklyData.currentData}
-                                    comparisonData={sharedWeeklyData.comparisonData}
-                                    isLoading={sharedWeeklyData.isLoading}
-                                    error={sharedWeeklyData.error}
-                                    className="w-full"
-                                />
+                                <WithReveal
+                                    isLoading={weeklyLoading.showSkeletons}
+                                    hasData={hasDataWeekly}
+                                    shouldReveal={!weeklyLoading.showSkeletons && hasDataWeekly}
+                                    skeleton={<AdaptiveSkeleton type="accordion" className="w-full" itemCount={5} />}
+                                    type="slideUp"
+                                >
+                                    <WeeklyBranchSummaryAccordionShared
+                                        startDate={startDate}
+                                        endDate={endDate}
+                                        currentData={weeklyData.currentData}
+                                        comparisonData={weeklyData.comparisonData}
+                                        isLoading={weeklyLoading.showLoading}
+                                        error={weeklyData.error}
+                                        className="w-full"
+                                        onBranchDetailsClick={handleOpenDrawer}
+                                    />
+                                </WithReveal>
                             </div>
                         )}
 
-                        {/* Monthly Components Section - OPTIMIZED: Uses ONLY 2 API calls total */}
+                        {/* Monthly Components Section - OPTIMIZED: Uses shared data hook */}
                         {shouldShowMonthlyComponents && (
-                            <div className="">
+                            <div className="space-y-4">
+                                {/* Gráfica mensual optimizada */}
+                                <WithReveal
+                                    isLoading={monthlyLoading.showSkeletons}
+                                    hasData={hasDataMonthly}
+                                    shouldReveal={!monthlyLoading.showSkeletons && hasDataMonthly}
+                                    skeleton={<AdaptiveSkeleton type="chart" className="overflow-hidden border-0 bg-transparent shadow-none w-full" showTitle={true} showLegend={true} height="h-40" />}
+                                    type="slideUp"
+                                >
+                                    <MonthlyLineChartOptimized
+                                        chartData={monthlyData.chartData}
+                                        isLoading={monthlyLoading.showLoading}
+                                        error={monthlyData.error}
+                                        onRefresh={monthlyData.refetch}
+                                        className="w-full"
+                                    />
+                                </WithReveal>
+                                
+                                {/* Resumen de ventas mensual */}
+                                <WithReveal
+                                    isLoading={monthlyLoading.showSkeletons}
+                                    hasData={hasDataMonthly}
+                                    shouldReveal={!monthlyLoading.showSkeletons && hasDataMonthly}
+                                    skeleton={<AdaptiveSkeleton type="card" className="w-full" showPercentage={true} />}
+                                    type="slideUp"
+                                >
+                                    <MonthlySalesSummaryOptimized
+                                        startDate={startDate}
+                                        endDate={endDate}
+                                        currentData={monthlyData.currentData}
+                                        comparisonData={monthlyData.comparisonData}
+                                        percentageChange={monthlyData.percentageChange}
+                                        previousAmount={monthlyData.previousAmount}
+                                        isLoading={monthlyLoading.showLoading}
+                                        error={monthlyData.error}
+                                        className="w-full"
+                                    />
+                                </WithReveal>
 
-                                <MonthlyLineChart
-                                    startDate={startDate}
-                                    endDate={endDate}
-                                    title="Análisis Mensual por Semanas"
-                                    description={`Comparación mensual vs mes anterior`}
-                                    className="w-full"
-                                />
+                                {/* Acordeón de sucursales mensual */}
+                                <WithReveal
+                                    isLoading={monthlyLoading.showSkeletons}
+                                    hasData={hasDataMonthly}
+                                    shouldReveal={!monthlyLoading.showSkeletons && hasDataMonthly}
+                                    skeleton={<AdaptiveSkeleton type="accordion" className="w-full" itemCount={6} />}
+                                    type="slideUp"
+                                >
+                                    <MonthlyBranchSummaryAccordionOptimized
+                                        startDate={startDate}
+                                        endDate={endDate}
+                                        currentData={monthlyData.currentData}
+                                        comparisonData={monthlyData.comparisonData}
+                                        isLoading={monthlyLoading.showLoading}
+                                        error={monthlyData.error}
+                                        className="w-full"
+                                        onBranchDetailsClick={handleOpenDrawer}
+                                    />
+                                </WithReveal>
+                            </div>
+                        )}
 
-                                <MonthlySalesSummaryOptimized
-                                    startDate={startDate}
-                                    endDate={endDate}
-                                    currentData={sharedMonthlyData.currentData}
-                                    comparisonData={sharedMonthlyData.comparisonData}
-                                    percentageChange={sharedMonthlyData.percentageChange}
-                                    previousAmount={sharedMonthlyData.previousAmount}
-                                    isLoading={sharedMonthlyData.isLoading}
-                                    error={sharedMonthlyData.error}
-                                    className="w-full"
-                                />
+                        {/* Custom Range Components Section - NO comparisons with previous periods */}
+                        {shouldShowCustomRangeComponents && (
+                            <div className="space-y-4">
+                                <WithReveal
+                                    isLoading={showGlobalLoading}
+                                    hasData={hasDataCustomRange}
+                                    shouldReveal={!showGlobalLoading && hasDataCustomRange}
+                                    skeleton={<AdaptiveSkeleton type="chart" className="overflow-hidden border-0 bg-transparent shadow-none w-full" showTitle={true} showLegend={true} height="h-40" />}
+                                    type="slideUp"
+                                >
+                                    <CustomRangeLineChart
+                                        startDate={startDate}
+                                        endDate={endDate}
+                                        topBranches={customRangeData.topBranches}
+                                        className="w-full"
+                                    />
+                                </WithReveal>
 
-                                <MonthlyBranchSummaryAccordionShared
-                                    startDate={startDate}
-                                    endDate={endDate}
-                                    currentData={sharedMonthlyData.currentData}
-                                    comparisonData={sharedMonthlyData.comparisonData}
-                                    isLoading={sharedMonthlyData.isLoading}
-                                    error={sharedMonthlyData.error}
-                                    className="w-full"
-                                />
+                                <WithReveal
+                                    isLoading={showGlobalLoading}
+                                    hasData={hasDataCustomRange}
+                                    shouldReveal={!showGlobalLoading && hasDataCustomRange}
+                                    skeleton={<AdaptiveSkeleton type="card" className="w-full" />}
+                                    type="slideUp"
+                                >
+                                    <CustomRangeSalesSummary
+                                        startDate={startDate}
+                                        endDate={endDate}
+                                        summaryData={customRangeData.summaryData}
+                                        allBranchesSummaryData={customRangeData.allBranchesSummaryData}
+                                        data={customRangeData.data}
+                                        error={customRangeData.error}
+                                        className="w-full"
+                                    />
+                                </WithReveal>
+
+                                <WithReveal
+                                    isLoading={showGlobalLoading}
+                                    hasData={hasDataCustomRange}
+                                    shouldReveal={!showGlobalLoading && hasDataCustomRange}
+                                    skeleton={<AdaptiveSkeleton type="accordion" className="w-full" itemCount={5} />}
+                                    type="slideUp"
+                                >
+                                    <CustomRangeBranchSummary
+                                        topBranches={customRangeData.topBranches}
+                                        allBranches={customRangeData.allBranches}
+                                        startDate={startDate}
+                                        endDate={endDate}
+                                        className="w-full"
+                                        onBranchDetailsClick={handleOpenDrawer}
+                                    />
+                                </WithReveal>
                             </div>
                         )}
                     </>
                 )}
 
-                {/* Info message when filter is not single day, weekly, or monthly */}
-                {!shouldShowChart && !shouldShowWeeklyComponents && !shouldShowMonthlyComponents && hasValidRange && (
+                {/* Info message when filter is not supported */}
+                {!shouldShowChart && !shouldShowWeeklyComponents && !shouldShowMonthlyComponents && !shouldShowCustomRangeComponents && hasValidRange && (
                     <div className="rounded-xl border-0 bg-gradient-to-br from-background to-muted/20 p-2 text-center shadow-sm">
                         <div className="mx-auto max-w-md">
                             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10">
@@ -270,13 +515,23 @@ export default function Dashboard() {
                             <div className="">
                                 <h3 className="text-lg font-semibold">Análisis de Datos</h3>
                                 <p className="text-sm text-muted-foreground">
-                                    Selecciona un día para análisis por horas, una semana para resúmenes semanales, o un mes completo para análisis mensual
+                                    Selecciona un período válido para ver análisis de datos
                                 </p>
                             </div>
                         </div>
                     </div>
                 )}
-            </div>
+                
+                {/* Branch Detail Drawer */}
+                <BranchDetailDrawer
+                    isOpen={isDrawerOpen}
+                    branchData={selectedBranchData}
+                    onClose={closeDrawer}
+                    dateRange={drawerDateRange}
+                    onDateRangeChange={updateDrawerDateRange}
+                />
+                </div>
+            </PullToRefreshContainer>
         </AppLayout>
     );
 }

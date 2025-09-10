@@ -58,7 +58,6 @@ export function MonthlySalesSummaryOptimized({
     endDate, 
     className,
     currentData,
-    comparisonData,
     percentageChange,
     previousAmount,
     isLoading = false,

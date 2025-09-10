@@ -139,4 +139,19 @@
         @apply bg-background text-foreground;
         background-color: #ffffff !important;
     }
+    
+    /* Pull to refresh support */
+    html {
+        overscroll-behavior-y: contain;
+    }
+}
+
+@layer utilities {
+    .overscroll-behavior-y-contain {
+        overscroll-behavior-y: contain;
+    }
+    
+    .touch-pan-down {
+        touch-action: pan-down;
+    }
 }

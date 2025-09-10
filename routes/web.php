@@ -44,6 +44,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('get-hours-chart', [ChartController::class, 'getHoursChart'])->name('hours-chart');
         Route::get('main-data', [ChartController::class, 'getMainDashboardData'])->name('main-data');
         
+        // Performance-optimized batch endpoints
+        Route::post('weekly-batch', [ChartController::class, 'getWeeklyBatch'])->name('weekly-batch');
+        Route::match(['GET', 'POST'], 'monthly-batch', [ChartController::class, 'getMonthlyBatch'])->name('monthly-batch');
+        
         // Optimized endpoints for performance
         Route::get('optimized-period-data', [\App\Http\Controllers\OptimizedDashboardController::class, 'getOptimizedPeriodData'])->name('optimized-period-data');
         Route::get('optimized-branch-data', [\App\Http\Controllers\OptimizedDashboardController::class, 'getOptimizedBranchData'])->name('optimized-branch-data');

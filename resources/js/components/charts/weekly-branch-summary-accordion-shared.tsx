@@ -6,6 +6,9 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { AdaptiveSkeleton } from '@/components/ui/adaptive-skeleton';
+import { isTodayIncludedInRange } from '@/utils/date-utils';
+import { type BranchDetailData } from '@/types/branch-detail';
 
 interface BranchData {
     open_accounts: {
@@ -50,6 +53,7 @@ interface WeeklyBranchSummaryAccordionSharedProps {
     comparisonData: MainDashboardData | null;
     isLoading?: boolean;
     error?: Error | null;
+    onBranchDetailsClick?: (branchData: BranchDetailData) => void;
 }
 
 export function WeeklyBranchSummaryAccordionShared({
@@ -59,9 +63,13 @@ export function WeeklyBranchSummaryAccordionShared({
     currentData,
     comparisonData,
     isLoading = false,
-    error = null
+    error = null,
+    onBranchDetailsClick
 }: WeeklyBranchSummaryAccordionSharedProps) {
     const [expandedBranches, setExpandedBranches] = useState<Set<string>>(new Set());
+    
+    // Check if today is included in the date range to show/hide "Abiertas" section
+    const showOpenAccounts = isTodayIncludedInRange(startDate, endDate);
 
     const formatNumber = (amount: number) => {
         return new Intl.NumberFormat('en-US', {
@@ -81,9 +89,9 @@ export function WeeklyBranchSummaryAccordionShared({
     };
 
     const getPercentageColor = (percentage: number) => {
-        if (percentage > 0) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-        if (percentage < 0) return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+        if (percentage > 0) return 'bg-[#897053] text-white';
+        if (percentage < 0) return 'bg-[#D58B35] text-white';
+        return 'bg-gray-500 text-white';
     };
 
     const getPercentageArrow = (percentage: number) => {
@@ -111,19 +119,12 @@ export function WeeklyBranchSummaryAccordionShared({
 
     if (isLoading) {
         return (
-            <Card className={`${className} overflow-hidden border-0 bg-transparent shadow-none`}>
-                <CardContent className="flex h-40 items-center justify-center px-4 pt-1 pb-1">
-                    <div className="space-y-2 text-center">
-                        <div className="relative">
-                            <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                                <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-                            </div>
-                        </div>
-                        <p className="text-sm font-medium">Cargando sucursales...</p>
-                        <p className="text-xs text-green-600 dark:text-green-400">Usando datos compartidos - 0 API calls extra</p>
-                    </div>
-                </CardContent>
-            </Card>
+            <AdaptiveSkeleton 
+                type="accordion" 
+                className={className}
+                showTitle={true}
+                itemCount={3}
+            />
         );
     }
 
@@ -221,78 +222,107 @@ export function WeeklyBranchSummaryAccordionShared({
                             <CollapsibleContent>
                                 <CardContent className="px-4 pb-4 pt-0">
                                     <div className="space-y-3 border-t border-slate-200/30 pt-3 dark:border-slate-700/30">
-                                        {/* Abiertas */}
-                                        <div className="flex items-center justify-between rounded-lg bg-blue-50/50 px-3 py-2 dark:bg-blue-900/20">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex h-6 w-6 items-center justify-center rounded bg-blue-100 dark:bg-blue-800">
-                                                    <span className="text-xs font-bold text-blue-600 dark:text-blue-200">A</span>
+                                        {/* Abiertas - Only show if today is included in date range */}
+                                        {showOpenAccounts && (
+                                            <div className="flex items-center justify-between rounded-lg bg-[#E7D2BA]/50 px-3 py-2 dark:bg-[#E7D2BA]/20">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex h-6 w-6 items-center justify-center rounded bg-[#E7D2BA] dark:bg-[#E7D2BA]">
+                                                        <span className="text-xs font-bold text-[#6B5B47] dark:text-[#6B5B47]">A</span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-[#6B5B47] dark:text-[#E7D2BA]">
+                                                            Abiertas
+                                                        </p>
+                                                        <p className="text-xs text-[#8B7355] dark:text-[#D4C4A8]">
+                                                            Cuentas pendientes
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                                                        Abiertas
-                                                    </p>
-                                                    <p className="text-xs text-blue-600 dark:text-blue-300">
-                                                        Cuentas pendientes
+                                                <div className="text-right">
+                                                    <p className="text-lg font-bold text-[#6B5B47] dark:text-[#E7D2BA]">
+                                                        ${formatNumber(branchData.open_accounts.money)}
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
-                                                <p className="text-lg font-bold text-blue-900 dark:text-blue-100">
-                                                    ${formatNumber(branchData.open_accounts.money)}
-                                                </p>
-                                            </div>
-                                        </div>
+                                        )}
 
                                         {/* Cerradas */}
-                                        <div className="flex items-center justify-between rounded-lg bg-green-50/50 px-3 py-2 dark:bg-green-900/20">
+                                        <div className="flex items-center justify-between rounded-lg bg-[#DABE9C]/50 px-3 py-2 dark:bg-[#DABE9C]/20">
                                             <div className="flex items-center gap-2">
-                                                <div className="flex h-6 w-6 items-center justify-center rounded bg-green-100 dark:bg-green-800">
-                                                    <span className="text-xs font-bold text-green-600 dark:text-green-200">C</span>
+                                                <div className="flex h-6 w-6 items-center justify-center rounded bg-[#DABE9C] dark:bg-[#DABE9C]">
+                                                    <span className="text-xs font-bold text-[#6B5B47] dark:text-[#6B5B47]">C</span>
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                                                    <p className="text-sm font-medium text-[#6B5B47] dark:text-[#DABE9C]">
                                                         Cerradas
                                                     </p>
-                                                    <p className="text-xs text-green-600 dark:text-green-300">
-                                                        Ventas completadas
+                                                    <p className="text-xs text-[#8B7355] dark:text-[#C7A882]">
+                                                        {showOpenAccounts ? 'Ventas completadas' : 'Ventas'}
                                                     </p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-lg font-bold text-green-900 dark:text-green-100">
+                                                <p className="text-lg font-bold text-[#6B5B47] dark:text-[#DABE9C]">
                                                     ${formatNumber(branchData.closed_ticket.money)}
                                                 </p>
                                             </div>
                                         </div>
 
                                         {/* Promedio */}
-                                        <div className="flex items-center justify-between rounded-lg bg-purple-50/50 px-3 py-2 dark:bg-purple-900/20">
+                                        <div className="flex items-center justify-between rounded-lg bg-[#F6DABA]/50 px-3 py-2 dark:bg-[#F6DABA]/20">
                                             <div className="flex items-center gap-2">
-                                                <div className="flex h-6 w-6 items-center justify-center rounded bg-purple-100 dark:bg-purple-800">
-                                                    <span className="text-xs font-bold text-purple-600 dark:text-purple-200">P</span>
+                                                <div className="flex h-6 w-6 items-center justify-center rounded bg-[#F6DABA] dark:bg-[#F6DABA]">
+                                                    <span className="text-xs font-bold text-[#6B5B47] dark:text-[#6B5B47]">P</span>
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                                                    <p className="text-sm font-medium text-[#6B5B47] dark:text-[#F6DABA]">
                                                         Promedio
                                                     </p>
-                                                    <p className="text-xs text-purple-600 dark:text-purple-300">
+                                                    <p className="text-xs text-[#8B7355] dark:text-[#E8C8A2]">
                                                         Por ticket
                                                     </p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-lg font-bold text-purple-900 dark:text-purple-100">
+                                                <p className="text-lg font-bold text-[#6B5B47] dark:text-[#F6DABA]">
                                                     ${formatNumber(branchData.average_ticket)}
                                                 </p>
                                             </div>
                                         </div>
 
                                         {/* Footer con total de tickets */}
-                                        <div className="flex items-center justify-between pt-2 text-xs text-slate-500 dark:text-slate-400">
-                                            <span>Total de tickets: {totalTickets}</span>
-                                            <button className="flex items-center gap-1 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+                                        <div className="flex items-center justify-between pt-3">
+                                            <span className="text-xs text-slate-500 dark:text-slate-400">Total de tickets: {totalTickets}</span>
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (onBranchDetailsClick) {
+                                                        const detailData: BranchDetailData = {
+                                                            branchName,
+                                                            storeId: branchData.store_id,
+                                                            totalSales,
+                                                            openAccounts: {
+                                                                total: branchData.open_accounts.total,
+                                                                money: branchData.open_accounts.money,
+                                                            },
+                                                            closedTickets: {
+                                                                total: branchData.closed_ticket.total,
+                                                                money: branchData.closed_ticket.money,
+                                                            },
+                                                            averageTicket: branchData.average_ticket,
+                                                            percentage: branchData.percentage,
+                                                            brand: branchData.brand,
+                                                            region: branchData.region,
+                                                            operationalAddress: branchData.operational_address,
+                                                            generalAddress: branchData.general_address,
+                                                        };
+                                                        onBranchDetailsClick(detailData);
+                                                    }
+                                                }}
+                                                className="flex items-center gap-2 rounded-lg bg-[#897053] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#6B5B47] focus:ring-2 focus:ring-[#897053]/50 focus:outline-none touch-manipulation"
+                                            >
                                                 Ver Detalles
-                                                <span>→</span>
+                                                <span className="text-xs">→</span>
                                             </button>
                                         </div>
                                     </div>

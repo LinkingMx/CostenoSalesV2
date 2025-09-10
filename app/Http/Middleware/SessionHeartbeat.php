@@ -73,9 +73,9 @@ class SessionHeartbeat
         $response->headers->set('X-Session-Remaining', max(0, $timeRemaining));
         $response->headers->set('X-Session-Status', Auth::check() ? 'active' : 'inactive');
         
-        // Warning if session expires in less than 1 day
-        if ($timeRemaining < 86400 && $timeRemaining > 0) {
-            $response->headers->set('X-Session-Warning', 'expiring-soon');
-        }
+        // Session warning disabled - PWA handles session expiration gracefully
+        // if ($timeRemaining < 86400 && $timeRemaining > 0) {
+        //     $response->headers->set('X-Session-Warning', 'expiring-soon');
+        // }
     }
 }

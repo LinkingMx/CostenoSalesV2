@@ -1,4 +1,7 @@
-import { Card, CardContent } from '@/components/ui/card';
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface MainDashboardData {
     success: boolean;
@@ -30,101 +33,145 @@ export function WeeklySalesSummaryOptimized({
     endDate, 
     className,
     currentData,
-    comparisonData,
     percentageChange,
     previousAmount,
     isLoading = false,
     error = null
 }: WeeklySalesSummaryOptimizedProps) {
+
     // Usar datos ya fetched - NO hacer más API calls
     const totalSales = currentData?.data?.sales?.total ?? 0;
-    const changePercentage = percentageChange ?? 0;
-    const prevAmount = previousAmount ?? 0;
+    const subtotal = currentData?.data?.sales?.subtotal ?? 0;
 
-    const formatNumber = (amount: number) => {
-        return new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
+    // Determinar color e icono del trend basado en el cambio porcentual
+    const getTrendInfo = () => {
+        if (percentageChange === null) {
+            return { icon: Minus, color: 'text-gray-500', bgColor: 'bg-gray-50 dark:bg-gray-900' };
+        }
+
+        if (percentageChange > 0) {
+            return { 
+                icon: TrendingUp, 
+                color: 'text-green-600 dark:text-green-400', 
+                bgColor: 'bg-green-50 dark:bg-green-900/20' 
+            };
+        } else if (percentageChange < 0) {
+            return { 
+                icon: TrendingDown, 
+                color: 'text-red-600 dark:text-red-400', 
+                bgColor: 'bg-red-50 dark:bg-red-900/20' 
+            };
+        } else {
+            return { icon: Minus, color: 'text-gray-500', bgColor: 'bg-gray-50 dark:bg-gray-900' };
+        }
+    };
+
+    const { icon: TrendIcon, color: trendColor, bgColor: trendBgColor } = getTrendInfo();
+
+    // Formatear números
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: 'MXN',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
         }).format(amount);
     };
 
-    const getPercentageColor = (percentage: number) => {
-        if (percentage > 0) return 'bg-green-500';
-        if (percentage < 0) return 'bg-red-500';
-        return 'bg-gray-500';
+    const formatPercentage = (value: number | null) => {
+        if (value === null) return 'N/A';
+        const sign = value >= 0 ? '+' : '';
+        return `${sign}${value.toFixed(1)}%`;
     };
 
-    const getPercentageArrow = (percentage: number) => {
-        if (percentage > 0) return '↗';
-        if (percentage < 0) return '↘';
-        return '→';
-    };
 
-    const formatDateRange = (start: string, end: string) => {
-        const startDate = new Date(start);
-        const endDate = new Date(end);
-        
-        const startFormatted = startDate.toLocaleDateString('es-ES', {
-            day: 'numeric',
-            month: 'short',
-        });
-        
-        const endFormatted = endDate.toLocaleDateString('es-ES', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-        });
-        
-        return `${startFormatted} - ${endFormatted}`;
-    };
-
+    // Manejar estados de loading y error
     if (error) {
         return (
-            <Card className={`${className} overflow-hidden border-0 bg-transparent shadow-none`}>
-                <CardContent className="px-4 pt-1 pb-1">
-                    <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-3">
-                            <span className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                                {formatNumber(0)}
-                            </span>
-                        </div>
-                        <p className="text-sm text-red-600 dark:text-red-400">
-                            Error al cargar los datos: {error.message}
-                        </p>
-                    </div>
+            <Card className={cn('border-red-200 dark:border-red-800', className)}>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-red-600 dark:text-red-400">
+                        Error en Resumen Semanal
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-red-600 dark:text-red-400">
+                        {error.message || 'Error al cargar los datos del resumen semanal'}
+                    </p>
                 </CardContent>
             </Card>
         );
     }
 
     return (
-        <Card className={`${className} overflow-hidden border-0 bg-transparent shadow-none`}>
-            <CardContent className="px-4 pt-1 pb-1">
-                <div className="space-y-1">
+        <Card className={cn('w-full', className)}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                    Resumen de Ventas Semanal
+                </CardTitle>
+                <div className={cn('rounded-full p-2', trendBgColor)}>
+                    <TrendIcon className={cn('h-4 w-4', trendColor)} />
+                </div>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-3">
+                    {/* Ventas Totales */}
+                    <div>
+                        <div className="text-2xl font-bold">
+                            {isLoading ? (
+                                <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-8 w-32 rounded" />
+                            ) : (
+                                formatCurrency(totalSales)
+                            )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            {isLoading ? (
+                                <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-4 w-24 rounded mt-1" />
+                            ) : (
+                                `Total del ${startDate} al ${endDate}`
+                            )}
+                        </p>
+                    </div>
+
+                    {/* Subtotal */}
                     <div className="flex items-center justify-between">
-                        <p>Venta Semanal:</p>
-                        {!isLoading && (
-                            <div className="text-xs text-green-600 dark:text-green-400 font-medium">
-                                ⚡ Optimizado - Sin API calls extra
-                            </div>
-                        )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                        <span className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                            {formatNumber(totalSales)}
+                        <span className="text-sm text-muted-foreground">Subtotal:</span>
+                        <span className="text-sm font-medium">
+                            {isLoading ? (
+                                <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-4 w-20 rounded" />
+                            ) : (
+                                formatCurrency(subtotal)
+                            )}
                         </span>
-                        {changePercentage !== 0 && (
-                            <div
-                                className={`inline-flex items-center rounded-full px-2.5 py-1 text-sm font-medium text-white ${getPercentageColor(changePercentage)}`}
-                            >
-                                {getPercentageArrow(changePercentage)} {Math.abs(changePercentage).toFixed(1)}%
-                            </div>
-                        )}
                     </div>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                        <span className="font-medium text-slate-600 dark:text-slate-300">{formatNumber(prevAmount)}</span>{' '}
-                        {prevAmount ? 'Misma semana anterior' : 'Comparación anterior'}
-                    </p>
+
+                    {/* Comparación con semana anterior */}
+                    {!isLoading && (
+                        <div className="flex items-center space-x-2 pt-2 border-t">
+                            <TrendIcon className={cn('h-4 w-4', trendColor)} />
+                            <div className="flex-1">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-muted-foreground">
+                                        vs. semana anterior
+                                    </span>
+                                    <span className={cn('text-xs font-medium', trendColor)}>
+                                        {formatPercentage(percentageChange)}
+                                    </span>
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                    Anterior: {formatCurrency(previousAmount || 0)}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Loading state para comparación */}
+                    {isLoading && (
+                        <div className="pt-2 border-t space-y-2">
+                            <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-4 w-full rounded" />
+                            <div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-3 w-3/4 rounded" />
+                        </div>
+                    )}
                 </div>
             </CardContent>
         </Card>

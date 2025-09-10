@@ -12,12 +12,9 @@ import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { type BreadcrumbItem, type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Menu, Search } from 'lucide-react';
+import { BookOpen, Folder, Menu, Search } from 'lucide-react';
 import AppLogo from './app-logo';
 import AppLogoIcon from './app-logo-icon';
-import { useTranslation } from '@/hooks/useTranslation';
-
-// Note: This will be moved inside the component to access translations
 
 const rightNavItems: NavItem[] = [
     {
@@ -42,6 +39,14 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
     const page = usePage<SharedData>();
     const { auth } = page.props;
     const getInitials = useInitials();
+    
+    const mainNavItems: NavItem[] = [
+        {
+            title: 'Dashboard',
+            href: dashboard(),
+            icon: Search, // Using Search as placeholder since LayoutGrid was removed
+        },
+    ];
     return (
         <>
             <div className="border-b border-sidebar-border/80">
